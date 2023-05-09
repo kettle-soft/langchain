@@ -59,15 +59,18 @@ class ConversationSummaryBufferMemory(BaseChatMemory, SummarizerMixin):
         super().save_context(inputs, outputs)
         self.prune()
 
+    @property
+    def curr_buffer_length(self) -> int:
+        """Return current buffer length."""
+        return self.llm.get_num_tokens_from_messages(self.buffer)
+
     def prune(self) -> None:
         """Prune buffer if it exceeds max token limit"""
         buffer = self.chat_memory.messages
-        curr_buffer_length = self.llm.get_num_tokens_from_messages(buffer)
-        if curr_buffer_length > self.max_token_limit:
-            pruned_memory = []
-            while curr_buffer_length > self.max_token_limit:
-                pruned_memory.append(buffer.pop(0))
-                curr_buffer_length = self.llm.get_num_tokens_from_messages(buffer)
+        pruned_memory = []
+        while self.curr_buffer_length > self.max_token_limit:
+            pruned_memory.append(buffer.pop(0))
+        if len(pruned_memory) > 0:
             self.moving_summary_buffer = self.predict_new_summary(
                 pruned_memory, self.moving_summary_buffer
             )
